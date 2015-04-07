@@ -1000,10 +1000,18 @@ ssh_set_newkeys(struct ssh *ssh, int mode)
 	 * The 2^(blocksize*2) limit is too expensive for 3DES,
 	 * blowfish, etc, so enforce a 1GB limit for small blocksizes.
 	 */
-	if (enc->block_size >= 16)
-		*max_blocks = (u_int64_t)1 << (enc->block_size*2);
-	else
+	if (enc->block_size >= 16) {
+		*max_blocks = ((u_int64_t)1 << (enc->block_size*2))
+			/*
+			 * Subtract the maximum number of blocks that can
+			 * possibly come from the buffer to avoid
+			 * running over the limit.
+			 */
+			- ((PACKET_MAX_SIZE + enc->block_size - 1)
+				/ enc->block_size);
+	} else {
 		*max_blocks = ((u_int64_t)1 << 30) / enc->block_size;
+	}
 	if (state->rekey_limit)
 		*max_blocks = MIN(*max_blocks,
 		    state->rekey_limit / enc->block_size);
